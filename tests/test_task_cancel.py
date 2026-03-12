@@ -19,9 +19,11 @@ def _make_loop():
     workspace = MagicMock()
     workspace.__truediv__ = MagicMock(return_value=MagicMock())
 
-    with patch("nanobot.agent.loop.ContextBuilder"), \
-         patch("nanobot.agent.loop.SessionManager"), \
-         patch("nanobot.agent.loop.SubagentManager") as MockSubMgr:
+    with (
+        patch("nanobot.agent.loop.ContextBuilder"),
+        patch("nanobot.agent.loop.SessionManager"),
+        patch("nanobot.agent.loop.SubagentManager") as MockSubMgr,
+    ):
         MockSubMgr.return_value.cancel_by_session = AsyncMock(return_value=0)
         loop = AgentLoop(bus=bus, provider=provider, workspace=workspace)
     return loop, bus
@@ -110,13 +112,13 @@ class TestDispatch:
         loop, bus = _make_loop()
         order = []
 
-        async def mock_process(m, **kwargs):
-            order.append(f"start-{m.content}")
+        async def mock_process(msg, **kwargs):
+            order.append(f"start-{msg.content}")
             await asyncio.sleep(0.05)
-            order.append(f"end-{m.content}")
-            return OutboundMessage(channel="test", chat_id="c1", content=m.content)
+            order.append(f"end-{msg.content}")
+            return OutboundMessage(channel="test", chat_id="c1", content=msg.content)
 
-        loop._process_message = mock_process
+        loop._process_message = AsyncMock(side_effect=mock_process)
         msg1 = InboundMessage(channel="test", sender_id="u1", chat_id="c1", content="a")
         msg2 = InboundMessage(channel="test", sender_id="u1", chat_id="c1", content="b")
 
@@ -129,7 +131,7 @@ class TestDispatch:
 class TestSubagentCancellation:
     @pytest.mark.asyncio
     async def test_cancel_by_session(self):
-        from nanobot.agent.subagent import SubagentManager
+        from nanobot.agent.subagent import RunningTaskInfo, SubagentManager
         from nanobot.bus.queue import MessageBus
 
         bus = MessageBus()
@@ -148,7 +150,12 @@ class TestSubagentCancellation:
 
         task = asyncio.create_task(slow())
         await asyncio.sleep(0)
-        mgr._running_tasks["sub-1"] = task
+        mgr._running_tasks["sub-1"] = RunningTaskInfo(
+            task_id="sub-1",
+            label="label",
+            backend="native",
+            raw_task=task,
+        )
         mgr._session_tasks["test:c1"] = {"sub-1"}
 
         count = await mgr.cancel_by_session("test:c1")
@@ -168,7 +175,7 @@ class TestSubagentCancellation:
 
     @pytest.mark.asyncio
     async def test_subagent_preserves_reasoning_fields_in_tool_turn(self, monkeypatch, tmp_path):
-        from nanobot.agent.subagent import SubagentManager
+        from nanobot.agent.subagent import RunningTaskInfo, SubagentManager
         from nanobot.bus.queue import MessageBus
         from nanobot.providers.base import LLMResponse, ToolCallRequest
 
@@ -191,6 +198,7 @@ class TestSubagentCancellation:
                 )
             captured_second_call[:] = messages
             return LLMResponse(content="done", tool_calls=[])
+
         provider.chat_with_retry = scripted_chat_with_retry
         mgr = SubagentManager(provider=provider, workspace=tmp_path, bus=bus)
 
@@ -199,12 +207,26 @@ class TestSubagentCancellation:
 
         monkeypatch.setattr("nanobot.agent.tools.registry.ToolRegistry.execute", fake_execute)
 
-        await mgr._run_subagent("sub-1", "do task", "label", {"channel": "test", "chat_id": "c1"})
+        current_task = asyncio.current_task()
+        assert current_task is not None
+        mgr._running_tasks["sub-1"] = RunningTaskInfo(
+            task_id="sub-1",
+            label="label",
+            backend="native",
+            raw_task=current_task,
+        )
+
+        await mgr._run_native_subagent(
+            "sub-1", "do task", "label", {"channel": "test", "chat_id": "c1"}
+        )
 
         assistant_messages = [
-            msg for msg in captured_second_call
+            msg
+            for msg in captured_second_call
             if msg.get("role") == "assistant" and msg.get("tool_calls")
         ]
         assert len(assistant_messages) == 1
         assert assistant_messages[0]["reasoning_content"] == "hidden reasoning"
-        assert assistant_messages[0]["thinking_blocks"] == [{"type": "thinking", "thinking": "step"}]
+        assert assistant_messages[0]["thinking_blocks"] == [
+            {"type": "thinking", "thinking": "step"}
+        ]

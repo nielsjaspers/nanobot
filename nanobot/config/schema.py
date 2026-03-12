@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Base(BaseModel):
@@ -33,7 +33,9 @@ class TelegramConfig(Base):
         None  # HTTP/SOCKS5 proxy URL, e.g. "http://127.0.0.1:7890" or "socks5://127.0.0.1:1080"
     )
     reply_to_message: bool = False  # If true, bot replies quote the original message
-    group_policy: Literal["open", "mention"] = "mention"  # "mention" responds when @mentioned or replied to, "open" responds to all
+    group_policy: Literal["open", "mention"] = (
+        "mention"  # "mention" responds when @mentioned or replied to, "open" responds to all
+    )
 
 
 class FeishuConfig(Base):
@@ -48,7 +50,9 @@ class FeishuConfig(Base):
     react_emoji: str = (
         "THUMBSUP"  # Emoji type for message reactions (e.g. THUMBSUP, OK, DONE, SMILE)
     )
-    group_policy: Literal["open", "mention"] = "mention"  # "mention" responds when @mentioned, "open" responds to all
+    group_policy: Literal["open", "mention"] = (
+        "mention"  # "mention" responds when @mentioned, "open" responds to all
+    )
 
 
 class DingTalkConfig(Base):
@@ -233,13 +237,13 @@ class AgentDefaults(Base):
     """Default agent configuration."""
 
     workspace: str = "~/.nanobot/workspace"
-    model: str = "anthropic/claude-opus-4-5"
+    model: str = "kimi-k2.5"
     provider: str = (
-        "auto"  # Provider name (e.g. "anthropic", "openrouter") or "auto" for auto-detection
+        "custom"  # Provider name (e.g. "anthropic", "openrouter") or "auto" for auto-detection
     )
     max_tokens: int = 8192
     context_window_tokens: int = 65_536
-    temperature: float = 0.1
+    temperature: float = 1.0
     max_tool_iterations: int = 40
     # Deprecated compatibility field: accepted from old configs but ignored at runtime.
     memory_window: int | None = Field(default=None, exclude=True)
@@ -248,7 +252,9 @@ class AgentDefaults(Base):
     @property
     def should_warn_deprecated_memory_window(self) -> bool:
         """Return True when old memoryWindow is present without contextWindowTokens."""
-        return self.memory_window is not None and "context_window_tokens" not in self.model_fields_set
+        return (
+            self.memory_window is not None and "context_window_tokens" not in self.model_fields_set
+        )
 
 
 class AgentsConfig(Base):
@@ -268,8 +274,12 @@ class ProviderConfig(Base):
 class ProvidersConfig(Base):
     """Configuration for LLM providers."""
 
-    custom: ProviderConfig = Field(default_factory=ProviderConfig)  # Any OpenAI-compatible endpoint
-    azure_openai: ProviderConfig = Field(default_factory=ProviderConfig)  # Azure OpenAI (model = deployment name)
+    custom: ProviderConfig = Field(
+        default_factory=lambda: ProviderConfig(api_base="https://opencode.ai/zen/go/v1")
+    )  # Any OpenAI-compatible endpoint
+    azure_openai: ProviderConfig = Field(
+        default_factory=ProviderConfig
+    )  # Azure OpenAI (model = deployment name)
     anthropic: ProviderConfig = Field(default_factory=ProviderConfig)
     openai: ProviderConfig = Field(default_factory=ProviderConfig)
     openrouter: ProviderConfig = Field(default_factory=ProviderConfig)
@@ -292,8 +302,20 @@ class ProvidersConfig(Base):
 class HeartbeatConfig(Base):
     """Heartbeat service configuration."""
 
-    enabled: bool = True
+    enabled: bool = False
     interval_s: int = 30 * 60  # 30 minutes
+
+
+class OpenCodeServeConfig(Base):
+    """OpenCode Serve configuration for complex background tasks."""
+
+    enabled: bool = False
+    url: str = "http://127.0.0.1:4096"
+    username: str = "opencode"
+    password: str = ""
+    model_provider_id: str = "opencode-go"
+    model_id: str = "kimi-k2.5"
+    agent: str | None = None
 
 
 class GatewayConfig(Base):
@@ -302,6 +324,7 @@ class GatewayConfig(Base):
     host: str = "0.0.0.0"
     port: int = 18790
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
+    opencode: OpenCodeServeConfig = Field(default_factory=OpenCodeServeConfig)
 
 
 class WebSearchConfig(Base):
@@ -370,6 +393,14 @@ class Config(BaseSettings):
 
         forced = self.agents.defaults.provider
         if forced != "auto":
+            model_value = model or self.agents.defaults.model
+            model_prefix = (
+                model_value.split("/", 1)[0].replace("-", "_") if "/" in model_value else ""
+            )
+            if model_prefix and model_prefix != forced:
+                p = getattr(self.providers, model_prefix, None)
+                if p is not None:
+                    return p, model_prefix
             p = getattr(self.providers, forced, None)
             return (p, forced) if p else (None, None)
 
@@ -446,4 +477,7 @@ class Config(BaseSettings):
                 return spec.default_api_base
         return None
 
-    model_config = ConfigDict(env_prefix="NANOBOT_", env_nested_delimiter="__")
+    model_config = SettingsConfigDict(
+        env_prefix="NANOBOT_",
+        env_nested_delimiter="__",
+    )

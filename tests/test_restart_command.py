@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -21,15 +21,17 @@ def _make_loop():
     workspace = MagicMock()
     workspace.__truediv__ = MagicMock(return_value=MagicMock())
 
-    with patch("nanobot.agent.loop.ContextBuilder"), \
-         patch("nanobot.agent.loop.SessionManager"), \
-         patch("nanobot.agent.loop.SubagentManager"):
+    with (
+        patch("nanobot.agent.loop.ContextBuilder"),
+        patch("nanobot.agent.loop.SessionManager"),
+        patch("nanobot.agent.loop.SubagentManager"),
+    ):
         loop = AgentLoop(bus=bus, provider=provider, workspace=workspace)
+        loop.subagents.poll_opencode_tasks = AsyncMock(return_value=[])
     return loop, bus
 
 
 class TestRestartCommand:
-
     @pytest.mark.asyncio
     async def test_restart_sends_message_and_calls_execv(self):
         loop, bus = _make_loop()
@@ -74,3 +76,15 @@ class TestRestartCommand:
 
         assert response is not None
         assert "/restart" in response.content
+
+    @pytest.mark.asyncio
+    async def test_help_includes_research_commands(self):
+        loop, bus = _make_loop()
+        msg = InboundMessage(channel="telegram", sender_id="u1", chat_id="c1", content="/help")
+
+        response = await loop._process_message(msg)
+
+        assert response is not None
+        assert "/research" in response.content
+        assert "/status" in response.content
+        assert "/context" in response.content

@@ -134,6 +134,12 @@ def test_exec_guard_blocks_quoted_home_path_outside_workspace(tmp_path) -> None:
     assert error == "Error: Command blocked by safety guard (path outside working dir)"
 
 
+def test_exec_guard_blocks_clawhub_commands(tmp_path) -> None:
+    tool = ExecTool(restrict_to_workspace=True)
+    error = tool._guard_command("npx --yes clawhub@latest install demo-skill", str(tmp_path))
+    assert error == "Error: Command blocked by safety guard (dangerous pattern detected)"
+
+
 # --- cast_params tests ---
 
 

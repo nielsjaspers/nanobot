@@ -71,3 +71,7 @@ def test_runtime_context_is_separate_untrusted_user_message(tmp_path) -> None:
     assert "Channel: cli" in user_content
     assert "Chat ID: direct" in user_content
     assert "Return exactly: OK" in user_content
+
+
+def test_bootstrap_files_drop_tools_template() -> None:
+    assert "TOOLS.md" not in ContextBuilder.BOOTSTRAP_FILES
