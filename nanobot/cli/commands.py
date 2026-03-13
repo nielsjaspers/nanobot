@@ -326,6 +326,7 @@ def gateway(
     from nanobot.agent.loop import AgentLoop
     from nanobot.bus.queue import MessageBus
     from nanobot.channels.manager import ChannelManager
+    from nanobot.config.loader import save_config
     from nanobot.config.paths import get_cron_dir
     from nanobot.cron.service import CronService
     from nanobot.cron.types import CronJob
@@ -352,6 +353,9 @@ def gateway(
     cron = CronService(cron_store_path)
 
     # Create agent with cron service
+    def save_opencode_config():
+        save_config(config)
+
     agent = AgentLoop(
         bus=bus,
         provider=provider,
@@ -368,6 +372,7 @@ def gateway(
         mcp_servers=config.tools.mcp_servers,
         channels_config=config.channels,
         opencode_config=config.gateway.opencode,
+        save_config_callback=save_opencode_config,
     )
 
     # Set cron callback (needs agent)
@@ -530,6 +535,7 @@ def agent(
 
     from nanobot.agent.loop import AgentLoop
     from nanobot.bus.queue import MessageBus
+    from nanobot.config.loader import save_config
     from nanobot.config.paths import get_cron_dir
     from nanobot.cron.service import CronService
 
@@ -549,6 +555,9 @@ def agent(
     else:
         logger.disable("nanobot")
 
+    def save_opencode_config():
+        save_config(config)
+
     agent_loop = AgentLoop(
         bus=bus,
         provider=provider,
@@ -564,6 +573,7 @@ def agent(
         mcp_servers=config.tools.mcp_servers,
         channels_config=config.channels,
         opencode_config=config.gateway.opencode,
+        save_config_callback=save_opencode_config,
     )
 
     # Show spinner when logs are off (no output to miss); skip when logs are on

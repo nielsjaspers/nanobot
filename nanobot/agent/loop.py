@@ -83,6 +83,7 @@ class AgentLoop:
         mcp_servers: dict | None = None,
         channels_config: ChannelsConfig | None = None,
         opencode_config: OpenCodeServeConfig | None = None,
+        save_config_callback: Callable[[], None] | None = None,
     ):
         from nanobot.config.schema import ExecToolConfig
 
@@ -95,6 +96,7 @@ class AgentLoop:
         self.context_window_tokens = context_window_tokens
         self.brave_api_key = brave_api_key
         self.web_proxy = web_proxy
+        self.save_config_callback = save_config_callback
         self.exec_config = exec_config or ExecToolConfig()
         self.cron_service = cron_service
         self.restrict_to_workspace = restrict_to_workspace
@@ -114,6 +116,7 @@ class AgentLoop:
             opencode_config=opencode_config,
         )
 
+        self.opencode_config = opencode_config
         self._running = False
         self._mcp_servers = mcp_servers or {}
         self._mcp_stack: AsyncExitStack | None = None
@@ -654,6 +657,9 @@ class AgentLoop:
             session.current_model = None
             self.sessions.save(session)
             new_model = self._get_effective_model(session)
+            if self.opencode_config and self.save_config_callback:
+                self.opencode_config.model_id = DEFAULT_MODEL
+                self.save_config_callback()
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
@@ -666,6 +672,9 @@ class AgentLoop:
             self.sessions.save(session)
             info = AVAILABLE_MODELS[subcmd]
             vision_note = " Supports images." if info["vision"] else " Text-only."
+            if self.opencode_config and self.save_config_callback:
+                self.opencode_config.model_id = subcmd
+                self.save_config_callback()
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
