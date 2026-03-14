@@ -167,18 +167,21 @@ class LLMProvider(ABC):
         temperature: float = 0.7,
         reasoning_effort: str | None = None,
         tool_choice: str | dict[str, Any] | None = None,
+        thinking: dict[str, Any] | None = None,
     ) -> LLMResponse:
         """
         Send a chat completion request.
-        
+
         Args:
             messages: List of message dicts with 'role' and 'content'.
             tools: Optional list of tool definitions.
             model: Model identifier (provider-specific).
             max_tokens: Maximum tokens in response.
             temperature: Sampling temperature.
+            reasoning_effort: Reasoning effort level for OpenAI-compatible models ("low", "medium", "high").
             tool_choice: Tool selection strategy ("auto", "required", or specific tool dict).
-        
+            thinking: Thinking configuration for Anthropic-compatible models (e.g., {"type": "enabled"}).
+
         Returns:
             LLMResponse with content and/or tool calls.
         """
@@ -198,6 +201,7 @@ class LLMProvider(ABC):
         temperature: object = _SENTINEL,
         reasoning_effort: object = _SENTINEL,
         tool_choice: str | dict[str, Any] | None = None,
+        thinking: dict[str, Any] | None = None,
     ) -> LLMResponse:
         """Call chat() with retry on transient provider failures.
 
@@ -222,6 +226,7 @@ class LLMProvider(ABC):
                     temperature=temperature,
                     reasoning_effort=reasoning_effort,
                     tool_choice=tool_choice,
+                    thinking=thinking,
                 )
             except asyncio.CancelledError:
                 raise
@@ -255,6 +260,7 @@ class LLMProvider(ABC):
                 temperature=temperature,
                 reasoning_effort=reasoning_effort,
                 tool_choice=tool_choice,
+                thinking=thinking,
             )
         except asyncio.CancelledError:
             raise

@@ -120,6 +120,7 @@ class AzureOpenAIProvider(LLMProvider):
         temperature: float = 0.7,
         reasoning_effort: str | None = None,
         tool_choice: str | dict[str, Any] | None = None,
+        thinking: dict[str, Any] | None = None,
     ) -> LLMResponse:
         """
         Send a chat completion request to Azure OpenAI.
@@ -131,6 +132,7 @@ class AzureOpenAIProvider(LLMProvider):
             max_tokens: Maximum tokens in response (mapped to max_completion_tokens).
             temperature: Sampling temperature.
             reasoning_effort: Optional reasoning effort parameter.
+            thinking: Optional thinking configuration (not used for Azure OpenAI).
 
         Returns:
             LLMResponse with content and/or tool calls.

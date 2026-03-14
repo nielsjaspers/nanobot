@@ -55,6 +55,7 @@ class OpencodeServeClient:
         model_id: str | None = None,
         agent: str | None = None,
         no_reply: bool = False,
+        reasoning_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         body: dict[str, Any] = {
             "parts": [{"type": "text", "text": text}],
@@ -67,6 +68,8 @@ class OpencodeServeClient:
             body["agent"] = agent
         if no_reply:
             body["noReply"] = True
+        if reasoning_config:
+            body["reasoningConfig"] = reasoning_config
         return await self._request_json("POST", f"/session/{session_id}/message", json=body)
 
     async def abort_session(self, session_id: str) -> None:
@@ -94,6 +97,7 @@ class OpencodeServeClient:
         model_id: str | None = None,
         agent: str | None = None,
         no_reply: bool = False,
+        reasoning_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         body: dict[str, Any] = {
             "parts": [{"type": "text", "text": text}],
@@ -106,6 +110,8 @@ class OpencodeServeClient:
             body["agent"] = agent
         if no_reply:
             body["noReply"] = True
+        if reasoning_config:
+            body["reasoningConfig"] = reasoning_config
         return await self._request_json("POST", f"/session/{session_id}/prompt_async", json=body)
 
     async def wait_for_text(

@@ -14,24 +14,8 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable
 from loguru import logger
 
 from nanobot.agent.context import ContextBuilder
+from nanobot.models_config import AVAILABLE_MODELS, DEFAULT_MODEL, get_model_reasoning_config
 
-# Model registry for available models
-AVAILABLE_MODELS: dict[str, dict[str, Any]] = {
-    "kimi-k2.5": {
-        "vision": True,
-        "description": "Moonshot Kimi K2.5 — best overall performance with vision support",
-    },
-    "glm-5": {
-        "vision": False,
-        "description": "Zhipu GLM-5 — fast text-only model",
-    },
-    "minimax-m2.5": {
-        "vision": False,
-        "description": "MiniMax M2.5 — most cost effective (text-only)",
-    },
-}
-
-DEFAULT_MODEL = "kimi-k2.5"
 from nanobot.agent.memory import MemoryConsolidator
 from nanobot.agent.tools.research import ResearchTool
 from nanobot.agent.subagent import SubagentManager
@@ -263,6 +247,16 @@ class AgentLoop:
         # Use provided model or fall back to instance default
         effective_model = model or self.model or DEFAULT_MODEL
 
+        # Get reasoning configuration for the effective model
+        reasoning_config = get_model_reasoning_config(effective_model)
+        thinking_param = None
+        reasoning_effort_param = None
+        if reasoning_config:
+            if reasoning_config["type"] == "thinking":
+                thinking_param = reasoning_config["value"]
+            else:
+                reasoning_effort_param = reasoning_config["value"]
+
         while iteration < self.max_iterations:
             iteration += 1
 
@@ -272,6 +266,8 @@ class AgentLoop:
                 messages=messages,
                 tools=tool_defs,
                 model=effective_model,
+                thinking=thinking_param,
+                reasoning_effort=reasoning_effort_param,
             )
 
             if response.has_tool_calls:

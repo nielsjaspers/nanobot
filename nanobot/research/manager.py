@@ -9,6 +9,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from nanobot.models_config import get_model_reasoning_config
 from nanobot.bus.events import InboundMessage, OutboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.opencode_client import OpencodeServeClient
@@ -159,6 +160,7 @@ class ResearchManager:
                 provider_id=self.opencode_config.model_provider_id,
                 model_id=task.model,
                 agent=self.config.opencode_agent or self.opencode_config.agent,
+                reasoning_config=get_model_reasoning_config(task.model) if task.model else None,
             )
             await self._poll_until_done(task, client)
         except asyncio.CancelledError:
@@ -298,6 +300,7 @@ class ResearchManager:
                 model_id=task.model,
                 agent=self.config.opencode_agent or self.opencode_config.agent,
                 no_reply=True,
+                reasoning_config=get_model_reasoning_config(task.model) if task.model else None,
             )
         finally:
             await client.aclose()

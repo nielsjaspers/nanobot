@@ -215,6 +215,7 @@ class LiteLLMProvider(LLMProvider):
         temperature: float = 0.7,
         reasoning_effort: str | None = None,
         tool_choice: str | dict[str, Any] | None = None,
+        thinking: dict[str, Any] | None = None,
     ) -> LLMResponse:
         """
         Send a chat completion request via LiteLLM.
@@ -262,10 +263,16 @@ class LiteLLMProvider(LLMProvider):
         if self.extra_headers:
             kwargs["extra_headers"] = self.extra_headers
         
-        if reasoning_effort:
+        # Handle reasoning/thinking parameters
+        # reasoning_effort is for OpenAI-compatible APIs
+        # thinking is for Anthropic-compatible APIs (e.g., minimax-m2.5)
+        if thinking:
+            kwargs["thinking"] = thinking
+            kwargs["drop_params"] = True
+        elif reasoning_effort:
             kwargs["reasoning_effort"] = reasoning_effort
             kwargs["drop_params"] = True
-        
+
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = tool_choice or "auto"

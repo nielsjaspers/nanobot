@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from nanobot.models_config import get_model_reasoning_config
 from nanobot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
 from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.agent.tools.opencode_search import OpencodeSearchTool
@@ -151,6 +152,7 @@ class SubagentManager:
                 provider_id=self.opencode_config.model_provider_id,
                 model_id=self.opencode_config.model_id,
                 agent=self.opencode_config.agent,
+                reasoning_config=get_model_reasoning_config(self.opencode_config.model_id),
             )
             return await self._wait_for_opencode_result(client, session_id)
         finally:
@@ -268,6 +270,7 @@ class SubagentManager:
                 provider_id=self.opencode_config.model_provider_id,
                 model_id=self.opencode_config.model_id,
                 agent=self.opencode_config.agent,
+                reasoning_config=get_model_reasoning_config(self.opencode_config.model_id),
             )
             logger.info("Subagent [{}] OpenCode session started: {}", task_id, session_id)
 
@@ -504,6 +507,7 @@ Stay focused on the assigned task. Your final response will be reported back to 
                 model_id=self.opencode_config.model_id,
                 agent=self.opencode_config.agent,
                 no_reply=True,
+                reasoning_config=get_model_reasoning_config(self.opencode_config.model_id),
             )
         finally:
             await client.aclose()
