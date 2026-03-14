@@ -235,3 +235,20 @@ class SkillsLoader:
                 return metadata
 
         return None
+
+    def get_cache_key(self) -> str:
+        """Generate a cache key based on skill files' modification times."""
+        import hashlib
+
+        paths = []
+        for skill in self.list_skills(filter_unavailable=False):
+            p = Path(skill["path"])
+            if p.exists():
+                paths.append(f"{p.parent.name}:{p.stat().st_mtime}:{p.stat().st_size}")
+
+        # Include builtin skills dir mtime too
+        if self.builtin_skills and self.builtin_skills.exists():
+            paths.append(f"builtin:{self.builtin_skills.stat().st_mtime}")
+
+        key = "|".join(paths) if paths else "none"
+        return hashlib.sha256(key.encode()).hexdigest()[:16]

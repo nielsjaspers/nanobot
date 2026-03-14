@@ -1,6 +1,7 @@
 """Context builder for assembling agent prompts."""
 
 import base64
+import hashlib
 import mimetypes
 import platform
 import time
@@ -23,9 +24,41 @@ class ContextBuilder:
         self.workspace = workspace
         self.memory = MemoryStore(workspace)
         self.skills = SkillsLoader(workspace)
+        self._system_prompt_cache: str | None = None
+        self._system_prompt_cache_key: str | None = None
+
+    def _get_cache_key(self) -> str:
+        """Generate a cache key based on all inputs to build_system_prompt."""
+        parts = []
+
+        # Bootstrap files content hash
+        for filename in self.BOOTSTRAP_FILES:
+            file_path = self.workspace / filename
+            if file_path.exists():
+                parts.append(f"{filename}:{file_path.stat().st_mtime}:{file_path.stat().st_size}")
+
+        # Memory file
+        memory_path = self.workspace / "memory" / "MEMORY.md"
+        if memory_path.exists():
+            parts.append(f"MEMORY:{memory_path.stat().st_mtime}:{memory_path.stat().st_size}")
+
+        # Skills
+        parts.append(f"skills:{self.skills.get_cache_key()}")
+
+        return hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
 
     def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
-        """Build the system prompt from identity, bootstrap files, memory, and skills."""
+        """Build the system prompt from identity, bootstrap files, memory, and skills.
+        
+        Results are cached and only rebuilt if underlying files change.
+        """
+        cache_key = self._get_cache_key()
+
+        # Return cached version if still valid
+        if self._system_prompt_cache is not None and self._system_prompt_cache_key == cache_key:
+            return self._system_prompt_cache
+
+        # Build fresh system prompt
         parts = [self._get_identity()]
 
         bootstrap = self._load_bootstrap_files()
@@ -51,7 +84,9 @@ Skills with available="false" need dependencies installed first - you can try in
 
 {skills_summary}""")
 
-        return "\n\n---\n\n".join(parts)
+        self._system_prompt_cache = "\n\n---\n\n".join(parts)
+        self._system_prompt_cache_key = cache_key
+        return self._system_prompt_cache
 
     def _get_identity(self) -> str:
         """Get the core identity section."""

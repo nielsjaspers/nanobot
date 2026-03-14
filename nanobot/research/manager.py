@@ -45,6 +45,29 @@ class ResearchManager:
         self.opencode_config = opencode_config
         self.persistence = ResearchPersistence(workspace)
         self._running: dict[str, RunningResearch] = {}
+        self._research_skill_content = self._load_research_skill()
+
+    def _load_research_skill(self) -> str | None:
+        """Load the deep-research skill content directly from builtin skills."""
+        import re
+        from pathlib import Path
+
+        # Load directly from builtin skills directory
+        builtin_skills_dir = Path(__file__).parent.parent / "skills"
+        skill_path = builtin_skills_dir / "deep-research" / "SKILL.md"
+
+        if not skill_path.exists():
+            return None
+
+        content = skill_path.read_text(encoding="utf-8")
+
+        # Strip frontmatter
+        if content.startswith("---"):
+            match = re.match(r"^---\n.*?\n---\n", content, re.DOTALL)
+            if match:
+                content = content[match.end():].strip()
+
+        return content
 
     def bind_tools(self, tools) -> None:
         del tools
@@ -132,6 +155,7 @@ class ResearchManager:
             await client.prompt_async(
                 session_id=session_id,
                 text=self._build_prompt(task),
+                system=self._build_system_prompt(),
                 provider_id=self.opencode_config.model_provider_id,
                 model_id=task.model,
                 agent=self.config.opencode_agent or self.opencode_config.agent,
@@ -351,18 +375,22 @@ class ResearchManager:
             directory=str(self.workspace),
         )
 
-    def _build_prompt(self, task: ResearchTask) -> str:
-        policy = (
+    def _build_system_prompt(self) -> str:
+        """Build the system prompt for research tasks."""
+        base = (
             "You are running a delegated Nanobot research task inside OpenCode. "
-            "Do the full research yourself: plan, search, inspect sources, analyze gaps, iterate, and synthesize. "
-            "If useful, you may also write files, prototype code, and run local checks to test a hypothesis. "
-            "Return the real final result, not a meta-summary."
+            "Follow the deep-research methodology below carefully.\n"
         )
+        if self._research_skill_content:
+            base += f"\n{self._research_skill_content}\n"
         if not self.config.allow_prototypes:
-            policy += (
-                " Do not create or execute prototypes unless the user explicitly requested them."
+            base += (
+                "\nNote: Do not create or execute prototypes unless the user explicitly requested them."
             )
-        return f"{policy}\n\nTask:\n{task.query}"
+        return base
+
+    def _build_prompt(self, task: ResearchTask) -> str:
+        return f"Task:\n{task.query}"
 
     @staticmethod
     def _latest_assistant_text(items: list[dict]) -> str:
