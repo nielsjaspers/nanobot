@@ -145,6 +145,11 @@ class ContextBuilder:
 
 class AgentLoop:
     _TOOL_RESULT_MAX_CHARS = 16_000
+    _MODEL_ALIASES = {
+        "minimax": "minimax-m2.5",
+        "kimi": "kimi-k2.5",
+        "glm": "glm-5",
+    }
 
     def __init__(
         self,
@@ -415,14 +420,14 @@ class AgentLoop:
                     chat_id=msg.chat_id,
                     content=f"Archiving failed, session not cleared. {exc}",
                 )
-            session = self.store.reset(key)
+            session = self.store.reset(key, preserve_model=True)
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
                 content=f"Conversation archived as '{archived.title}' and new session started.",
             )
         if cmd == "/clear":
-            session = self.store.reset(key)
+            session = self.store.reset(key, preserve_model=True)
             return OutboundMessage(
                 channel=msg.channel, chat_id=msg.chat_id, content="Chat cleared."
             )
@@ -546,6 +551,7 @@ class AgentLoop:
                 channel=msg.channel, chat_id=msg.chat_id, content="\n".join(lines)
             )
         subcmd = parts[1].lower().strip()
+        subcmd = self._MODEL_ALIASES.get(subcmd, subcmd)
         if subcmd == "reset":
             old = self._get_effective_model(session)
             session.current_model = None

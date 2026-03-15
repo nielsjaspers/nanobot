@@ -28,9 +28,19 @@ def test_session_reset_clears_active_transcript(tmp_path: Path):
     store.save(session)
     reset = store.reset("cli:direct")
     assert reset.messages == []
-    assert reset.current_model is None
+    assert reset.current_model == "glm-5"
     payload = json.loads(store.state_path("cli:direct").read_text(encoding="utf-8"))
     assert payload["messages"] == []
+
+
+def test_session_reset_can_drop_model_when_requested(tmp_path: Path):
+    cfg = MikeConfig(data_dir=str(tmp_path / "mike-data"))
+    store = ChatStore(cfg)
+    session = store.get("cli:direct")
+    session.current_model = "minimax-m2.5"
+    store.save(session)
+    reset = store.reset("cli:direct", preserve_model=False)
+    assert reset.current_model is None
 
 
 def test_search_helpers_work_for_memory_and_history(tmp_path: Path):

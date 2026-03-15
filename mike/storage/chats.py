@@ -47,7 +47,6 @@ class ChatSession:
 
     def clear(self) -> None:
         self.messages = []
-        self.current_model = None
         now = timestamp()
         self.created_at = now
         self.updated_at = now
@@ -131,8 +130,16 @@ class ChatStore:
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         self._cache[session.key] = session
 
-    def reset(self, session_key: str) -> ChatSession:
-        session = ChatSession(key=session_key)
+    def reset(self, session_key: str, preserve_model: bool = True) -> ChatSession:
+        current = (
+            self.get(session_key)
+            if session_key in self._cache or self.state_path(session_key).exists()
+            else None
+        )
+        session = ChatSession(
+            key=session_key,
+            current_model=current.current_model if preserve_model and current else None,
+        )
         self.save(session)
         self._cache[session_key] = session
         return session

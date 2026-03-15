@@ -57,3 +57,9 @@ def test_model_max_tokens_are_clamped_safely():
     assert clamp_max_tokens("minimax-m2.5", 250000) == 196000
     assert clamp_max_tokens("kimi-k2.5", 300000) == 260000
     assert clamp_max_tokens("glm-5", 250000) == 202000
+
+
+def test_supported_model_ids_exist_for_alias_targets():
+    assert get_model("minimax-m2.5") is not None
+    assert get_model("kimi-k2.5") is not None
+    assert get_model("glm-5") is not None
