@@ -3,16 +3,14 @@ x-common-config: &common-config
     context: .
     dockerfile: Dockerfile
   volumes:
-    - ~/.nanobot:/root/.nanobot
+    - ~/.mike:/root/.mike
 
 services:
-  nanobot-gateway:
-    container_name: nanobot-gateway
+  mike-gateway:
+    container_name: mike-gateway
     <<: *common-config
     command: ["gateway"]
     restart: unless-stopped
-    ports:
-      - 18790:18790
     deploy:
       resources:
         limits:
@@ -22,10 +20,10 @@ services:
           cpus: '0.25'
           memory: 256M
   
-  nanobot-cli:
+  mike-cli:
     <<: *common-config
     profiles:
       - cli
-    command: ["status"]
+    command: ["agent", "-m", "hello"]
     stdin_open: true
     tty: true
